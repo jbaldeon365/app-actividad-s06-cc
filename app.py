@@ -41,12 +41,12 @@ with tab1:
     with col1:
         nombre = st.text_input("Nombre completo")
         dni = st.text_input("DNI")
-        ingreso = st.number_input("Ingreso mensual", min_value=0)
+        ingreso = st.number_input("Ingreso mensual")
 
     with col2:
-        antiguedad = st.number_input("Antigüedad laboral (meses)", min_value=0)
-        deuda = st.number_input("Deuda actual", min_value=0)
-        monto = st.number_input("Monto solicitado", min_value=0)
+        antiguedad = st.number_input("Antigüedad laboral (meses)")
+        deuda = st.number_input("Deuda actual")
+        monto = st.number_input("Monto solicitado")
 
     if st.button("Enviar solicitud"):
 
