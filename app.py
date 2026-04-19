@@ -3,10 +3,9 @@ from pymongo import MongoClient
 from datetime import datetime
 import pandas as pd
 import certifi
-import matplotlib.pyplot as plt
 
 # -------------------------
-# CONFIGURACIÓN GENERAL
+# CONFIGURACIÓN
 # -------------------------
 st.set_page_config(page_title="Banco Regional Andino", layout="wide")
 
@@ -23,130 +22,119 @@ coleccion = db["creditos"]
 # -------------------------
 # TÍTULO
 # -------------------------
-st.title("Sistema Inteligente de Evaluación Digital de Créditos")
-st.caption("Caso: Banco Regional Andino")
+st.title("Portal Digital de Créditos - Banco Regional Andino")
 
 # -------------------------
-# MÉTRICAS GENERALES
+# TABS
 # -------------------------
-datos_db = list(coleccion.find({}, {"_id": 0}))
-df = pd.DataFrame(datos_db) if datos_db else pd.DataFrame()
+tab1, tab2 = st.tabs(["Cliente Digital", "Panel Bancario"])
 
-if not df.empty:
-    total = len(df)
-    aprobados = len(df[df["resultado"] == "Aprobado"])
-    observados = len(df[df["resultado"] == "Observado"])
-    rechazados = len(df[df["resultado"] == "Rechazado"])
+# ======================================================
+# TAB CLIENTE DIGITAL
+# ======================================================
+with tab1:
 
-    c1, c2, c3, c4 = st.columns(4)
+    st.subheader("Solicita tu crédito en línea")
 
-    c1.metric("Total Solicitudes", total)
-    c2.metric("Aprobados", aprobados)
-    c3.metric("Observados", observados)
-    c4.metric("Rechazados", rechazados)
+    col1, col2 = st.columns(2)
 
-# -------------------------
-# FORMULARIO
-# -------------------------
-st.subheader("Nueva Solicitud de Crédito")
+    with col1:
+        nombre = st.text_input("Nombre completo")
+        dni = st.text_input("DNI")
+        ingreso = st.number_input("Ingreso mensual", min_value=0)
 
-col1, col2 = st.columns(2)
+    with col2:
+        antiguedad = st.number_input("Antigüedad laboral (meses)", min_value=0)
+        deuda = st.number_input("Deuda actual", min_value=0)
+        monto = st.number_input("Monto solicitado", min_value=0)
 
-with col1:
-    nombre = st.text_input("Nombre del cliente")
-    dni = st.text_input("DNI")
-    ingreso = st.number_input("Ingreso mensual", min_value=0)
+    if st.button("Enviar solicitud"):
 
-with col2:
-    antiguedad = st.number_input("Antigüedad laboral (meses)", min_value=0)
-    deuda = st.number_input("Deuda actual", min_value=0)
-    monto = st.number_input("Monto solicitado", min_value=0)
+        if nombre and dni:
 
-# -------------------------
-# SCORE CREDITICIO
-# -------------------------
-if st.button("Evaluar crédito"):
+            score = 0
 
-    if nombre and dni:
+            if ingreso > 3000:
+                score += 40
+            elif ingreso > 2000:
+                score += 25
 
-        score = 0
+            if antiguedad >= 12:
+                score += 30
 
-        if ingreso > 3000:
-            score += 40
-        elif ingreso > 2000:
-            score += 25
+            if deuda < ingreso * 0.3:
+                score += 30
 
-        if antiguedad >= 12:
-            score += 30
+            monto_recomendado = ingreso * 5
 
-        if deuda < ingreso * 0.3:
-            score += 30
+            if score >= 80:
+                resultado = "Preaprobado"
+                mensaje = "Tu crédito fue preaprobado digitalmente"
+            elif score >= 50:
+                resultado = "En evaluación"
+                mensaje = "Tu solicitud requiere validación adicional"
+            else:
+                resultado = "No aprobado"
+                mensaje = "Tu perfil necesita revisión"
 
-        if score >= 80:
-            resultado = "Aprobado"
-            riesgo = "Bajo"
-        elif score >= 50:
-            resultado = "Observado"
-            riesgo = "Medio"
-        else:
-            resultado = "Rechazado"
-            riesgo = "Alto"
+            datos = {
+                "nombre": nombre,
+                "dni": dni,
+                "ingreso": ingreso,
+                "antiguedad": antiguedad,
+                "deuda": deuda,
+                "monto": monto,
+                "score": score,
+                "resultado": resultado,
+                "fecha": datetime.now()
+            }
 
-        datos = {
-            "nombre": nombre,
-            "dni": dni,
-            "ingreso": ingreso,
-            "antiguedad": antiguedad,
-            "deuda": deuda,
-            "monto": monto,
-            "score": score,
-            "riesgo": riesgo,
-            "resultado": resultado,
-            "fecha": datetime.now()
-        }
+            coleccion.insert_one(datos)
 
-        coleccion.insert_one(datos)
+            st.success(mensaje)
+            st.info(f"Score crediticio: {score}/100")
+            st.info(f"Monto sugerido: S/ {monto_recomendado}")
+            st.metric("Tiempo de respuesta", "2 segundos")
 
-        st.success(f"Resultado: {resultado}")
-        st.info(f"Score crediticio: {score}/100")
-        st.warning(f"Nivel de riesgo: {riesgo}")
+            st.rerun()
+
+# ======================================================
+# TAB PANEL BANCARIO
+# ======================================================
+with tab2:
+
+    st.subheader("Panel de monitoreo bancario")
+
+    datos_db = list(coleccion.find({}, {"_id": 0}))
+    df = pd.DataFrame(datos_db)
+
+    if not df.empty:
+
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric("Solicitudes Totales", len(df))
+        c2.metric("Preaprobados", len(df[df["resultado"] == "Preaprobado"]))
+        c3.metric("En evaluación", len(df[df["resultado"] == "En evaluación"]))
+
+        st.subheader("Buscar por DNI")
+
+        dni_buscar = st.text_input("Ingrese DNI")
+
+        if dni_buscar:
+            filtro = df[df["dni"] == dni_buscar]
+
+            if not filtro.empty:
+                st.dataframe(filtro, use_container_width=True)
+            else:
+                st.write("Cliente no encontrado")
+
+        st.subheader("Historial General")
+        st.dataframe(df, use_container_width=True)
+
+        st.subheader("Distribución de solicitudes")
+
+        conteo = df["resultado"].value_counts()
+        st.bar_chart(conteo)
 
     else:
-        st.warning("Complete nombre y DNI")
-
-# -------------------------
-# BÚSQUEDA POR DNI
-# -------------------------
-st.subheader("Buscar cliente por DNI")
-
-dni_buscar = st.text_input("Ingrese DNI para buscar")
-
-if dni_buscar:
-    resultado_busqueda = list(coleccion.find({"dni": dni_buscar}, {"_id": 0}))
-
-    if resultado_busqueda:
-        df_busqueda = pd.DataFrame(resultado_busqueda)
-        st.dataframe(df_busqueda, use_container_width=True)
-    else:
-        st.write("Cliente no encontrado")
-
-# -------------------------
-# HISTORIAL GENERAL
-# -------------------------
-st.subheader("Historial General")
-
-if not df.empty:
-    st.dataframe(df, use_container_width=True)
-
-# -------------------------
-# GRÁFICO
-# -------------------------
-st.subheader("Distribución de resultados")
-
-if not df.empty:
-    conteo = df["resultado"].value_counts()
-
-    fig, ax = plt.subplots()
-    ax.bar(conteo.index, conteo.values)
-
-    st.pyplot(fig)
+        st.write("No hay solicitudes registradas")
